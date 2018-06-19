@@ -1,31 +1,21 @@
 package com.bbq.service;
 
-import com.bbq.dao.BoardDao;
-import com.bbq.dao.PostDao;
-import com.bbq.dao.TopicDao;
+import com.bbq.dao.LoginLogDao;
 import com.bbq.dao.UserDao;
-import com.bbq.domain.*;
+import com.bbq.domain.LoginLog;
+import com.bbq.domain.User;
+import com.bbq.exception.UserExistException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
+import java.util.List;
 
 @Service
 public class UserService {
 
-    private TopicDao topicDao;
-
     private UserDao userDao;
-
-    private BoardDao boardDao;
-
-    private PostDao postDao;
-
-
-    @Autowired
-    public void setTopicDao(TopicDao topicDao) {
-        this.topicDao = topicDao;
-    }
+    private LoginLogDao loginLogDao;
 
     @Autowired
     public void setUserDao(UserDao userDao) {
@@ -33,66 +23,68 @@ public class UserService {
     }
 
     @Autowired
-    public void setBoardDao(BoardDao boardDao) {
-        this.boardDao = boardDao;
+    public void setLoginLogDao(LoginLogDao loginLogDao) {
+        this.loginLogDao = loginLogDao;
     }
 
-    @Autowired
-    public void setPostDao(PostDao postDao) {
-        this.postDao = postDao;
+
+    public void register(User user) throws UserExistException {
+        User u = this.getUserByUserName(user.getUserName());
+        if (u != null) {
+            throw new UserExistException("用户名已经存在");
+        } else {
+            user.setCredit(100);
+            user.setUserType(User.NORMAL_USER);
+            userDao.save(user);
+        }
     }
 
-    public void addTopic(Topic topic) {
-        Board board = (Board) boardDao.get(topic.getBoardId());
 
-        board.setTopicNum(board.getTopicNum()+1);
-        topicDao.save(topic);
+    public void update(User user) {
+        userDao.update(user);
+    }
 
-        topic.getMainPost().setTopic(topic);
+    public User getUserByUserName(String userName) {
+        return userDao.getUserByUserName(userName);
+    }
 
-        MainPost post = topic.getMainPost();
-        post.setCreateTime(new Date());
-        post.setUser(topic.getUser());
-        post.setPostTitle(topic.getTopicTitle());
-        post.setBoardId(topic.getBoardId());
-        postDao.save(post);
 
-        User user = topic.getUser();
-        user.setCredit(user.getCredit() + 10);
+    public User getUserById(int userId) {
+        return userDao.get(userId);
+    }
+
+
+    public void lockUser(String userName) {
+       User user = userDao.getUserByUserName(userName);
+       user.setLocked(User.USER_LOCK);
+       userDao.update(user);
+    }
+
+
+    public void unlockUser(String userName) {
+        User user = userDao.getUserByUserName(userName);
+        user.setLocked(User.USER_UNLOCK);
         userDao.update(user);
     }
 
 
-    public void removeTopic(int topicId) {
-        Topic topic = topicDao.get(topicId);
-
-        Board board = boardDao.get(topic.getBoardId());
-
-        board.setTopicNum(board.getTopicNum() - 1);
-
-        User user = topic.getUser();
-        user.setCredit(user.getCredit() - 50);
-
-        topicDao.remove(topic);
-        postDao.deleteTopicPosts(topicId);
-
+    public List<User> queryUserByUserName(String userName) {
+        return userDao.queryUserByUserName(userName);
     }
 
+    public List<User> getAllUser(){
+        return userDao.loadAll();
+    }
 
-
-    public void addPost(Post post) {
-        postDao.save(post);
-
-        User user = post.getUser();
-        user.setCredit(user.getCredit()+5);
+    public void loginSuccess(User user) {
+        user.setCredit(5 + user.getCredit());
+        LoginLog loginLog = new LoginLog();
+        loginLog.setUser(user);
+        loginLog.setIp(user.getLastIp());
+        loginLog.setLoginDate(new Date());
         userDao.update(user);
-
-        Topic topic = topicDao.get(post.getTopic().getTopicId());
-        topic.setReplies(topic.getReplies()+1);
-        topic.setLastPost(new Date());
-    }
-
-    public void removePost(int postId) {
-        Post post = postDao.get(postId);
+        loginLogDao.save(loginLog);
     }
 }
+
+
