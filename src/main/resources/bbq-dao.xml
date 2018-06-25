@@ -61,9 +61,8 @@
     <aop:config>
         <aop:advisor id="managerTx"
                      advice-ref="txAdvice"
-                     pointcut="execution(* com.smart.*.*(..)))"
-                     order="1">
-        </aop:advisor>
+                     pointcut="execution(* com.bbq.*.*(..)))"
+                     order="1" />
     </aop:config>
 
 
